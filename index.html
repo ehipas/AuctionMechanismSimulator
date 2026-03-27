@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Ehipas — Auction Simulator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&family=Noto+Sans+Thai:wght@300;400;500&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── THEME TOKENS ── */
+:root {
+  --mono: 'DM Mono', monospace;
+  --sans: 'DM Sans', 'Noto Sans Thai', 'Noto Sans SC', sans-serif;
+  --accent: #b8f73a;
+  --accent-dim: rgba(184,247,58,0.12);
+  --red: #f74a4a;
+  --blue: #4a9cf7;
+  --purple: #9b7ef7;
+  --amber: #f7b74a;
+  --teal: #4af7c9;
+  --type-english: #b8f73a;
+  --type-english_nr: #4af7c9;
+  --type-flash: #f74a4a;
+  --type-dutch: #9b7ef7;
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+
+/* dark (default) */
+[data-theme="dark"] {
+  --bg:      #0d0d0b;
+  --bg2:     #141412;
+  --bg3:     #1c1c19;
+  --border:  #2a2a26;
+  --border2: #383834;
+  --text:    #e8e6dc;
+  --text2:   #888880;
+  --text3:   #555550;
+  --card-bg: #141412;
+  --input-bg:#1c1c19;
+  --shadow:  0 2px 12px rgba(0,0,0,0.5);
+}
+/* light */
+[data-theme="light"] {
+  --bg:      #f5f4ef;
+  --bg2:     #ffffff;
+  --bg3:     #eceae3;
+  --border:  #d8d6ce;
+  --border2: #c4c2ba;
+  --text:    #1a1a17;
+  --text2:   #666660;
+  --text3:   #999990;
+  --card-bg: #ffffff;
+  --input-bg:#f5f4ef;
+  --shadow:  0 2px 12px rgba(0,0,0,0.08);
+}
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+  transition: background 0.25s, color 0.25s;
+}
+
+/* ── HEADER ── */
+.header {
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--bg);
+}
+.logo {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.header-title {
+  font-size: 12px;
+  color: var(--text3);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.header-controls {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ── DROPDOWN BUTTONS ── */
+.ctrl-btn {
+  position: relative;
+  display: inline-block;
+}
+.ctrl-btn button {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text2);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 5px 9px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+.ctrl-btn button:hover { border-color: var(--border2); color: var(--text); }
+.ctrl-btn .arrow { font-size: 9px; opacity: 0.6; }
+
+.dropdown {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  min-width: 130px;
+  box-shadow: var(--shadow);
+  z-index: 200;
+  overflow: hidden;
+}
+.dropdown.open { display: block; }
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  font-size: 12px;
+  color: var(--text2);
+  cursor: pointer;
+  transition: background 0.1s;
+  border-bottom: 1px solid var(--border);
+}
+.dropdown-item:last-child { border-bottom: none; }
+.dropdown-item:hover { background: var(--bg3); color: var(--text); }
+.dropdown-item.active { color: var(--accent); }
+.dropdown-item .check { font-size: 10px; margin-left: auto; color: var(--accent); }
+
+/* ── LAYOUT ── */
+.layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  min-height: calc(100vh - 49px);
+}
+@media (max-width: 768px) {
+  .layout { grid-template-columns: 1fr; }
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  border-right: 1px solid var(--border);
+  padding: 18px 14px;
+  background: var(--bg);
+}
+@media (min-width: 769px) {
+  .sidebar {
+    position: sticky;
+    top: 49px;
+    height: calc(100vh - 49px);
+    overflow-y: auto;
+  }
+}
+@media (max-width: 768px) {
+  .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+}
+.sidebar::-webkit-scrollbar { width: 3px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+.section-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 12px;
+  margin-top: 4px;
+}
+
+/* ── PARAM ROWS ── */
+.param-row { margin-bottom: 14px; }
+.param-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 5px;
+}
+.param-name { font-size: 12px; color: var(--text2); font-weight: 300; }
+.param-value { font-family: var(--mono); font-size: 12px; color: var(--accent); font-weight: 500; }
+
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 2px;
+  background: var(--border2);
+  border-radius: 1px;
+  outline: none;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.25); }
+
+/* ── TYPE TOGGLES ── */
+.type-grid { display: grid; grid-template-columns: 1fr; gap: 5px; }
+.type-toggle {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  user-select: none;
+  background: var(--input-bg);
+}
+.type-toggle:hover { border-color: var(--border2); }
+.type-toggle.active { border-color: var(--accent); background: var(--accent-dim); }
+.type-toggle input { display: none; }
+.type-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.type-toggle:not(.active) .type-dot { background: var(--border2); }
+.type-name { font-size: 12px; }
+.type-tag { margin-left: auto; font-family: var(--mono); font-size: 9px; color: var(--text3); text-transform: uppercase; }
+
+/* ── RUN BUTTON ── */
+.sidebar-section { margin-bottom: 22px; }
+.run-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--accent);
+  color: #0d0d0b;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--sans);
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: opacity 0.2s, transform 0.1s;
+  margin-top: 4px;
+}
+.run-btn:hover { opacity: 0.88; }
+.run-btn:active { transform: scale(0.98); }
+.run-btn:disabled { opacity: 0.38; cursor: not-allowed; }
+.progress-track { height: 2px; background: var(--border); border-radius: 1px; margin-top: 10px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.25s; }
+
+/* ── MAIN ── */
+.main { padding: 20px 16px; background: var(--bg); min-height: 50vh; }
+@media (min-width: 769px) { .main { padding: 24px 28px; } }
+
+.empty-state {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; height: 50vh;
+  color: var(--text3); text-align: center; gap: 12px;
+}
+.empty-icon { font-family: var(--mono); font-size: 28px; color: var(--border2); }
+.empty-label { font-size: 13px; font-weight: 300; }
+
+/* ── RESULTS ── */
+.results { display: none; }
+.results.visible { display: block; }
+.results-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+.results-title { font-size: 17px; font-weight: 300; letter-spacing: -0.02em; }
+.runs-badge {
+  font-family: var(--mono); font-size: 10px; padding: 2px 8px;
+  background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: 20px; color: var(--text2);
+}
+
+/* ── TABLE ── */
+.table-wrap { border: 1px solid var(--border); border-radius: var(--radius); overflow: auto; margin-bottom: 18px; background: var(--card-bg); }
+table { width: 100%; border-collapse: collapse; font-size: 11px; min-width: 520px; }
+thead tr { background: var(--bg3); border-bottom: 1px solid var(--border); }
+th {
+  padding: 9px 12px; text-align: left;
+  font-family: var(--mono); font-size: 9px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text3); font-weight: 400; white-space: nowrap;
+}
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+.mono { font-family: var(--mono); font-size: 11px; }
+.winner-row { background: rgba(184,247,58,0.04); }
+.winner-row .type-cell { color: var(--accent); font-weight: 500; }
+.best-badge {
+  display: inline-block; font-family: var(--mono); font-size: 9px;
+  letter-spacing: 0.05em; padding: 1px 5px;
+  background: var(--accent-dim); color: var(--accent);
+  border-radius: 3px; margin-left: 5px; text-transform: uppercase;
+}
+
+/* ── RECOMMENDATION BOX ── */
+.rec-box {
+  border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  border-radius: var(--radius); padding: 16px 18px; margin-bottom: 22px;
+  background: var(--accent-dim);
+}
+.rec-title {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 14px;
+}
+.rec-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px; margin-bottom: 14px;
+}
+@media (max-width: 500px) { .rec-grid { grid-template-columns: 1fr 1fr; } }
+.rec-metric-label { font-size: 10px; color: var(--text3); margin-bottom: 3px; }
+.rec-metric-value { font-family: var(--mono); font-size: 16px; color: var(--text); font-weight: 300; }
+.rec-metric-unit { font-size: 10px; color: var(--text2); margin-left: 2px; }
+.rec-note {
+  font-size: 11px; color: var(--text2); line-height: 1.7;
+  padding-top: 12px; border-top: 1px solid var(--border);
+}
+.hyp-yes { color: var(--teal); }
+.hyp-no  { color: var(--amber); }
+
+/* ── CHARTS ── */
+.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 600px) { .charts-grid { grid-template-columns: 1fr; } }
+.chart-card {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px 14px 12px; background: var(--card-bg);
+}
+.chart-card-title {
+  font-family: var(--mono); font-size: 9px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text3); margin-bottom: 12px;
+}
+
+/* ── OVERLAY for closing dropdowns ── */
+.overlay { display: none; position: fixed; inset: 0; z-index: 99; }
+.overlay.active { display: block; }
+
+/* ── MOBILE GRID for sidebar params ── */
+@media (max-width: 768px) {
+  .params-mobile-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 16px;
+  }
+  .params-mobile-grid .param-row { margin-bottom: 12px; }
+  .type-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body data-theme="dark">
+
+<!-- Overlay for closing dropdowns -->
+<div class="overlay" id="overlay" onclick="closeAll()"></div>
+
+<!-- ── HEADER ── -->
+<div class="header">
+  <span class="logo">ehipas</span>
+  <span class="header-title" data-i18n="header_title">Auction Mechanism Simulator</span>
+  <div class="header-controls">
+
+    <!-- Language switcher -->
+    <div class="ctrl-btn" id="lang-btn">
+      <button onclick="toggleDrop('lang')">
+        <span id="lang-label">EN</span>
+        <span class="arrow">▾</span>
+      </button>
+      <div class="dropdown" id="lang-drop">
+        <div class="dropdown-item active" data-lang="en"  onclick="setLang('en')">🇬🇧 English <span class="check" id="lc-en">✓</span></div>
+        <div class="dropdown-item"        data-lang="th"  onclick="setLang('th')">🇹🇭 ภาษาไทย <span class="check" id="lc-th"></span></div>
+        <div class="dropdown-item"        data-lang="zh"  onclick="setLang('zh')">🇨🇳 中文 <span class="check" id="lc-zh"></span></div>
+        <div class="dropdown-item"        data-lang="ru"  onclick="setLang('ru')">🇷🇺 Русский <span class="check" id="lc-ru"></span></div>
+      </div>
+    </div>
+
+    <!-- Theme switcher -->
+    <div class="ctrl-btn" id="theme-btn">
+      <button onclick="toggleDrop('theme')">
+        <span id="theme-icon">◐</span>
+        <span class="arrow">▾</span>
+      </button>
+      <div class="dropdown" id="theme-drop">
+        <div class="dropdown-item" onclick="setTheme('system')" id="tc-system">⊙ <span data-i18n="theme_system">System</span> <span class="check" id="tk-system"></span></div>
+        <div class="dropdown-item" onclick="setTheme('light')"  id="tc-light" >☀ <span data-i18n="theme_light">Light</span>  <span class="check" id="tk-light"></span></div>
+        <div class="dropdown-item" onclick="setTheme('dark')"   id="tc-dark"  >☾ <span data-i18n="theme_dark">Dark</span>   <span class="check" id="tk-dark">✓</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── BODY LAYOUT ── -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <!-- Primary market -->
+    <div class="sidebar-section">
+      <div class="section-label" data-i18n="sec_primary">Primary market</div>
+      <div class="params-mobile-grid">
+        <div class="param-row">
+          <div class="param-header">
+            <span class="param-name" data-i18n="p_tickets">Tickets / experience</span>
+            <span class="param-value" id="v-tickets">11</span>
+          </div>
+          <input type="range" min="8" max="14" value="11" oninput="upd('tickets',this.value)">
+        </div>
+        <div class="param-row">
+          <div class="param-header">
+            <span class="param-name" data-i18n="p_reserve">Reserve (USDT)</span>
+            <span class="param-value" id="v-reserve">10</span>
+          </div>
+          <input type="range" min="0" max="20" value="10" oninput="upd('reserve',this.value)">
+        </div>
+        <div class="param-row">
+          <div class="param-header">
+            <span class="param-name" data-i18n="p_step">Bid step %</span>
+            <span class="param-value" id="v-step">5%</span>
+          </div>
+          <input type="range" min="1" max="10" value="5" oninput="upd('step',this.value)">
+        </div>
+        <div class="param-row">
+          <div class="param-header">
+            <span class="param-name" data-i18n="p_mult">Participants / tickets</span>
+            <span class="param-value" id="v-mult">2.0×</span>
+          </div>
+          <input type="range" min="15" max="30" value="20" oninput="upd('mult',this.value)">
+        </div>
+      </div>
+    </div>
+
+    <!-- Agents -->
+    <div class="sidebar-section">
+      <div class="section-label" data-i18n="sec_agents">Agent composition</div>
+      <div class="param-row">
+        <div class="param-header">
+          <span class="param-name" data-i18n="p_spec">Speculator fraction</span>
+          <span class="param-value" id="v-spec">25%</span>
+        </div>
+        <input type="range" min="0" max="60" value="25" oninput="upd('spec',this.value)">
+      </div>
+    </div>
+
+    <!-- Revenue -->
+    <div class="sidebar-section">
+      <div class="section-label" data-i18n="sec_revenue">Revenue model</div>
+      <div class="params-mobile-grid">
+        <div class="param-row">
+          <div class="param-header">
+            <span class="param-name" data-i18n="p_comm">Exchange fee</span>
+            <span class="param-value" id="v-comm">10%</span>
+          </div>
+          <input type="range" min="5" max="20" value="10" oninput="upd('comm',this.value)">
+        </div>
+        <div class="param-row">
+          <div class="param-header">
+            <span class="param-name" data-i18n="p_royalty">Creator royalty</span>
+            <span class="param-value" id="v-royalty">5%</span>
+          </div>
+          <input type="range" min="1" max="10" value="5" oninput="upd('royalty',this.value)">
+        </div>
+      </div>
+    </div>
+
+    <!-- Secondary -->
+    <div class="sidebar-section">
+      <div class="section-label" data-i18n="sec_secondary">Secondary market</div>
+      <div class="param-row">
+        <div class="param-header">
+          <span class="param-name" data-i18n="p_sec">Max resale rounds</span>
+          <span class="param-value" id="v-sec">5</span>
+        </div>
+        <input type="range" min="1" max="15" value="5" oninput="upd('sec',this.value)">
+      </div>
+    </div>
+
+    <!-- Auction types -->
+    <div class="sidebar-section">
+      <div class="section-label" data-i18n="sec_types">Auction types</div>
+      <div class="type-grid">
+        <label class="type-toggle active" id="lbl-english" onclick="toggleType('english',this)">
+          <input type="checkbox" id="t-english" checked>
+          <span class="type-dot" style="background:var(--type-english)"></span>
+          <span class="type-name" data-i18n="type_english">English + reserve</span>
+          <span class="type-tag" data-i18n="tag_classic">classic</span>
+        </label>
+        <label class="type-toggle active" id="lbl-english_nr" onclick="toggleType('english_nr',this)">
+          <input type="checkbox" id="t-english_nr" checked>
+          <span class="type-dot" style="background:var(--type-english_nr)"></span>
+          <span class="type-name" data-i18n="type_english_nr">English, no reserve</span>
+          <span class="type-tag" data-i18n="tag_open">open</span>
+        </label>
+        <label class="type-toggle active" id="lbl-flash" onclick="toggleType('flash',this)">
+          <input type="checkbox" id="t-flash" checked>
+          <span class="type-dot" style="background:var(--type-flash)"></span>
+          <span class="type-name" data-i18n="type_flash">Flash simultaneous</span>
+          <span class="type-tag" data-i18n="tag_flash">all at once</span>
+        </label>
+        <label class="type-toggle active" id="lbl-dutch" onclick="toggleType('dutch',this)">
+          <input type="checkbox" id="t-dutch" checked>
+          <span class="type-dot" style="background:var(--type-dutch)"></span>
+          <span class="type-name" data-i18n="type_dutch">Dutch descending</span>
+          <span class="type-tag" data-i18n="tag_dutch">reverse</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Monte Carlo -->
+    <div class="sidebar-section">
+      <div class="section-label" data-i18n="sec_mc">Monte Carlo</div>
+      <div class="param-row">
+        <div class="param-header">
+          <span class="param-name" data-i18n="p_runs">Simulation runs</span>
+          <span class="param-value" id="v-runs">300</span>
+        </div>
+        <input type="range" min="100" max="1000" step="50" value="300" oninput="upd('runs',this.value)">
+      </div>
+      <button class="run-btn" id="run-btn" onclick="runAll()" data-i18n="btn_run">Run simulation →</button>
+      <div class="progress-track"><div class="progress-fill" id="progress"></div></div>
+    </div>
+
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon">∿∿∿</div>
+      <div class="empty-label" data-i18n="empty_label">Configure parameters and run simulation</div>
+    </div>
+
+    <div class="results" id="results-section">
+      <div class="results-header">
+        <span class="results-title" data-i18n="results_title">Simulation results</span>
+        <span class="runs-badge" id="runs-badge"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table id="results-table">
+          <thead>
+            <tr>
+              <th data-i18n="col_type">Auction type</th>
+              <th data-i18n="col_rev">Mean rev.</th>
+              <th data-i18n="col_std">±Std</th>
+              <th data-i18n="col_prim">Primary</th>
+              <th data-i18n="col_sec">Secondary</th>
+              <th data-i18n="col_ratio">Sec %</th>
+              <th data-i18n="col_price">Avg price</th>
+              <th data-i18n="col_resales">Resales</th>
+            </tr>
+          </thead>
+          <tbody id="results-body"></tbody>
+        </table>
+      </div>
+
+      <div class="rec-box">
+        <div class="rec-title" data-i18n="rec_title">Model recommendation</div>
+        <div class="rec-grid" id="rec-metrics"></div>
+        <div class="rec-note" id="rec-note"></div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-card-title" data-i18n="chart_rev">Exchange revenue by auction type (USDT)</div>
+          <canvas id="chart-revenue" height="180"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title" data-i18n="chart_split">Primary vs secondary split</div>
+          <canvas id="chart-split" height="180"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title" id="chart-dist-title" data-i18n="chart_dist">Revenue distribution — best type</div>
+          <canvas id="chart-dist" height="180"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title" data-i18n="chart_price">Avg ticket price evolution</div>
+          <canvas id="chart-price" height="180"></canvas>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+// I18N
+// ══════════════════════════════════════════════
+const LANG = {
+  en: {
+    header_title: 'Auction Mechanism Simulator',
+    sec_primary: 'Primary market', sec_agents: 'Agent composition',
+    sec_revenue: 'Revenue model', sec_secondary: 'Secondary market',
+    sec_types: 'Auction types', sec_mc: 'Monte Carlo',
+    p_tickets: 'Tickets / experience', p_reserve: 'Reserve (USDT)',
+    p_step: 'Bid step %', p_mult: 'Participants / tickets',
+    p_spec: 'Speculator fraction', p_comm: 'Exchange fee',
+    p_royalty: 'Creator royalty', p_sec: 'Max resale rounds',
+    p_runs: 'Simulation runs',
+    btn_run: 'Run simulation →',
+    btn_running: 'Simulating…',
+    empty_label: 'Configure parameters and run simulation',
+    results_title: 'Simulation results',
+    runs_badge: (runs, types) => `${runs} runs · ${types} types`,
+    col_type: 'Auction type', col_rev: 'Mean rev.', col_std: '±Std',
+    col_prim: 'Primary', col_sec: 'Secondary', col_ratio: 'Sec %',
+    col_price: 'Avg price', col_resales: 'Resales',
+    rec_title: 'Model recommendation',
+    rec_best: 'Best auction type', rec_rev: 'Mean exchange revenue',
+    rec_sec_ratio: 'Secondary / Total', rec_avg_price: 'Avg ticket price',
+    rec_resales: 'Resales / experience', rec_tickets: 'Tickets sold (avg)',
+    rec_note: (winner, longTail, longTailClass, secPct, cvPct, isStable) =>
+      `<strong>Long-tail hypothesis:</strong> <span class="${longTailClass}">${longTail ? '✓ confirmed' : '⚠ not confirmed (primary dominates)'}</span> — secondary = ${secPct} of exchange revenue.<br>
+       <strong>Revenue stability (CV):</strong> ${cvPct} — ${isStable ? 'low variance, predictable' : 'high variance, depends on audience quality'}.<br>
+       <em style="color:var(--text3)">Model outputs. Real-market validation required.</em>`,
+    chart_rev: 'Exchange revenue by auction type (USDT)',
+    chart_split: 'Primary vs secondary split',
+    chart_dist: 'Revenue distribution — best type',
+    chart_price: 'Avg ticket price evolution',
+    type_english: 'English + reserve', type_english_nr: 'English, no reserve',
+    type_flash: 'Flash simultaneous', type_dutch: 'Dutch descending',
+    tag_classic: 'classic', tag_open: 'open', tag_flash: 'all at once', tag_dutch: 'reverse',
+    theme_system: 'System', theme_light: 'Light', theme_dark: 'Dark',
+    label_primary: 'Primary', label_secondary: 'Secondary',
+  },
+  th: {
+    header_title: 'จำลองกลไกการประมูล',
+    sec_primary: 'ตลาดหลัก', sec_agents: 'ประเภทผู้ร่วมประมูล',
+    sec_revenue: 'โมเดลรายได้', sec_secondary: 'ตลาดรอง',
+    sec_types: 'ประเภทการประมูล', sec_mc: 'มอนติคาร์โล',
+    p_tickets: 'ตั๋ว / ประสบการณ์', p_reserve: 'ราคาสำรอง (USDT)',
+    p_step: 'ขั้นเสนอราคา %', p_mult: 'ผู้เข้าร่วม / ตั๋ว',
+    p_spec: 'สัดส่วนนักเก็งกำไร', p_comm: 'ค่าธรรมเนียมแลกเปลี่ยน',
+    p_royalty: 'ค่าลิขสิทธิ์ผู้สร้าง', p_sec: 'รอบขายต่อสูงสุด',
+    p_runs: 'จำนวนครั้งจำลอง',
+    btn_run: 'เริ่มจำลอง →',
+    btn_running: 'กำลังจำลอง…',
+    empty_label: 'ตั้งค่าพารามิเตอร์และเรียกใช้การจำลอง',
+    results_title: 'ผลการจำลอง',
+    runs_badge: (runs, types) => `${runs} รอบ · ${types} ประเภท`,
+    col_type: 'ประเภท', col_rev: 'รายได้เฉลี่ย', col_std: '±ส.ด.',
+    col_prim: 'ตลาดหลัก', col_sec: 'ตลาดรอง', col_ratio: 'รอง %',
+    col_price: 'ราคาเฉลี่ย', col_resales: 'ขายต่อ',
+    rec_title: 'คำแนะนำจากโมเดล',
+    rec_best: 'ประเภทประมูลที่ดีที่สุด', rec_rev: 'รายได้แลกเปลี่ยนเฉลี่ย',
+    rec_sec_ratio: 'รอง / รวม', rec_avg_price: 'ราคาตั๋วเฉลี่ย',
+    rec_resales: 'ขายต่อ / ประสบการณ์', rec_tickets: 'ตั๋วที่ขายได้ (เฉลี่ย)',
+    rec_note: (winner, longTail, longTailClass, secPct, cvPct, isStable) =>
+      `<strong>สมมติฐาน long-tail:</strong> <span class="${longTailClass}">${longTail ? '✓ ยืนยันแล้ว' : '⚠ ยังไม่ยืนยัน (ตลาดหลักครอบงำ)'}</span> — รอง = ${secPct} ของรายได้<br>
+       <strong>ความเสถียร (CV):</strong> ${cvPct} — ${isStable ? 'ความแปรปรวนต่ำ คาดเดาได้' : 'ความแปรปรวนสูง ขึ้นกับคุณภาพผู้ชม'}<br>
+       <em style="color:var(--text3)">ผลลัพธ์จากโมเดล ต้องการการตรวจสอบจากตลาดจริง</em>`,
+    chart_rev: 'รายได้แลกเปลี่ยนตามประเภทประมูล (USDT)',
+    chart_split: 'ตลาดหลัก vs ตลาดรอง',
+    chart_dist: 'การกระจายรายได้ — ประเภทที่ดีที่สุด',
+    chart_price: 'วิวัฒนาการราคาตั๋วเฉลี่ย',
+    type_english: 'อังกฤษ + ราคาสำรอง', type_english_nr: 'อังกฤษ ไม่มีราคาสำรอง',
+    type_flash: 'แฟลชพร้อมกัน', type_dutch: 'ดัตช์ลดราคา',
+    tag_classic: 'คลาสสิก', tag_open: 'เปิด', tag_flash: 'พร้อมกัน', tag_dutch: 'ย้อนกลับ',
+    theme_system: 'ระบบ', theme_light: 'สว่าง', theme_dark: 'มืด',
+    label_primary: 'ตลาดหลัก', label_secondary: 'ตลาดรอง',
+  },
+  zh: {
+    header_title: '拍卖机制模拟器',
+    sec_primary: '一级市场', sec_agents: '代理人构成',
+    sec_revenue: '收益模型', sec_secondary: '二级市场',
+    sec_types: '拍卖类型', sec_mc: '蒙特卡洛',
+    p_tickets: '票数 / 体验', p_reserve: '底价 (USDT)',
+    p_step: '加价幅度 %', p_mult: '参与者 / 票数',
+    p_spec: '投机者比例', p_comm: '交易所佣金',
+    p_royalty: '创作者版税', p_sec: '最大转售轮次',
+    p_runs: '模拟次数',
+    btn_run: '开始模拟 →',
+    btn_running: '模拟中…',
+    empty_label: '设置参数并运行模拟',
+    results_title: '模拟结果',
+    runs_badge: (runs, types) => `${runs} 次 · ${types} 类型`,
+    col_type: '拍卖类型', col_rev: '平均收益', col_std: '±标准差',
+    col_prim: '一级市场', col_sec: '二级市场', col_ratio: '二级 %',
+    col_price: '平均票价', col_resales: '转售次数',
+    rec_title: '模型推荐',
+    rec_best: '最佳拍卖类型', rec_rev: '平均交易所收益',
+    rec_sec_ratio: '二级 / 总计', rec_avg_price: '平均票价',
+    rec_resales: '转售 / 体验', rec_tickets: '售出票数（平均）',
+    rec_note: (winner, longTail, longTailClass, secPct, cvPct, isStable) =>
+      `<strong>长尾假设：</strong><span class="${longTailClass}">${longTail ? '✓ 已确认' : '⚠ 未确认（一级市场主导）'}</span> — 二级市场占收益 ${secPct}<br>
+       <strong>收益稳定性 (CV)：</strong>${cvPct} — ${isStable ? '低波动，可预测' : '高波动，取决于受众质量'}<br>
+       <em style="color:var(--text3)">模型输出，需真实市场验证。</em>`,
+    chart_rev: '各拍卖类型交易所收益 (USDT)',
+    chart_split: '一级 vs 二级市场拆分',
+    chart_dist: '收益分布 — 最佳类型',
+    chart_price: '平均票价演变',
+    type_english: '英式 + 底价', type_english_nr: '英式，无底价',
+    type_flash: '闪拍（同时）', type_dutch: '荷兰式降价',
+    tag_classic: '经典', tag_open: '开放', tag_flash: '同时', tag_dutch: '反向',
+    theme_system: '跟随系统', theme_light: '浅色', theme_dark: '深色',
+    label_primary: '一级市场', label_secondary: '二级市场',
+  },
+  ru: {
+    header_title: 'Симулятор механик аукциона',
+    sec_primary: 'Первичный рынок', sec_agents: 'Состав агентов',
+    sec_revenue: 'Модель доходов', sec_secondary: 'Вторичный рынок',
+    sec_types: 'Типы аукционов', sec_mc: 'Монте-Карло',
+    p_tickets: 'Билетов / впечатление', p_reserve: 'Стартовая цена (USDT)',
+    p_step: 'Шаг ставки %', p_mult: 'Участников / билеты',
+    p_spec: 'Доля спекулянтов', p_comm: 'Комиссия биржи',
+    p_royalty: 'Роялти создателя', p_sec: 'Раундов перепродаж',
+    p_runs: 'Прогонов симуляции',
+    btn_run: 'Запустить симуляцию →',
+    btn_running: 'Симуляция…',
+    empty_label: 'Настройте параметры и запустите симуляцию',
+    results_title: 'Результаты симуляции',
+    runs_badge: (runs, types) => `${runs} прогонов · ${types} типа`,
+    col_type: 'Тип аукциона', col_rev: 'Ср. выручка', col_std: '±Откл.',
+    col_prim: 'Первичный', col_sec: 'Вторичный', col_ratio: 'Вторич. %',
+    col_price: 'Ср. цена', col_resales: 'Перепродаж',
+    rec_title: 'Рекомендация модели',
+    rec_best: 'Лучший тип аукциона', rec_rev: 'Ср. выручка биржи',
+    rec_sec_ratio: 'Вторичный / Итого', rec_avg_price: 'Ср. цена билета',
+    rec_resales: 'Перепродаж / опыт', rec_tickets: 'Продано билетов (ср.)',
+    rec_note: (winner, longTail, longTailClass, secPct, cvPct, isStable) =>
+      `<strong>Гипотеза длинного хвоста:</strong> <span class="${longTailClass}">${longTail ? '✓ подтверждена' : '⚠ не подтверждена (первичный рынок доминирует)'}</span> — вторичный = ${secPct} выручки.<br>
+       <strong>Стабильность выручки (CV):</strong> ${cvPct} — ${isStable ? 'низкая дисперсия, предсказуемо' : 'высокая дисперсия, зависит от качества аудитории'}.<br>
+       <em style="color:var(--text3)">Данные модели. Необходима проверка на реальном рынке.</em>`,
+    chart_rev: 'Выручка биржи по типам аукциона (USDT)',
+    chart_split: 'Первичный vs вторичный рынок',
+    chart_dist: 'Распределение выручки — лучший тип',
+    chart_price: 'Динамика средней цены билета',
+    type_english: 'Английский + резерв', type_english_nr: 'Английский, без резерва',
+    type_flash: 'Флэш-аукцион (одновременно)', type_dutch: 'Голландский (на понижение)',
+    tag_classic: 'классика', tag_open: 'открытый', tag_flash: 'одновременно', tag_dutch: 'реверс',
+    theme_system: 'Системная', theme_light: 'Светлая', theme_dark: 'Тёмная',
+    label_primary: 'Первичный', label_secondary: 'Вторичный',
+  }
+};
+
+let currentLang = 'en';
+
+function t(key, ...args) {
+  const val = LANG[currentLang][key] || LANG['en'][key] || key;
+  return typeof val === 'function' ? val(...args) : val;
+}
+
+function applyLang() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (el.tagName === 'INPUT') { el.placeholder = t(key); }
+    else { el.textContent = t(key); }
+  });
+  // Update lang button label
+  const labels = { en: 'EN', th: 'TH', zh: '中', ru: 'RU' };
+  document.getElementById('lang-label').textContent = labels[currentLang];
+  // Update html lang attr
+  document.documentElement.lang = currentLang;
+  // Re-render results if visible
+  if (lastResults.length) renderResults(lastResults);
+}
+
+function setLang(lang) {
+  currentLang = lang;
+  ['en','th','zh','ru'].forEach(l => {
+    document.getElementById('lc-' + l).textContent = l === lang ? '✓' : '';
+    document.querySelector(`[data-lang="${l}"]`).classList.toggle('active', l === lang);
+  });
+  closeAll();
+  applyLang();
+}
+
+// ══════════════════════════════════════════════
+// THEME
+// ══════════════════════════════════════════════
+let currentTheme = 'dark';
+const THEME_ICONS = { system: '⊙', light: '☀', dark: '☾' };
+
+function applyTheme(pref) {
+  let resolved = pref;
+  if (pref === 'system') {
+    resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  document.body.setAttribute('data-theme', resolved);
+  document.getElementById('theme-icon').textContent = THEME_ICONS[pref];
+  ['system','light','dark'].forEach(t => {
+    document.getElementById('tk-' + t).textContent = t === pref ? '✓' : '';
+  });
+  // Update chart defaults
+  const isDark = resolved === 'dark';
+  Chart.defaults.color = isDark ? '#888880' : '#888870';
+  if (lastResults.length) renderResults(lastResults);
+}
+
+function setTheme(theme) {
+  currentTheme = theme;
+  applyTheme(theme);
+  localStorage.setItem('ehipas-theme', theme);
+  closeAll();
+}
+
+// ══════════════════════════════════════════════
+// DROPDOWN LOGIC
+// ══════════════════════════════════════════════
+let openDrop = null;
+function toggleDrop(id) {
+  const drop = document.getElementById(id + '-drop');
+  const overlay = document.getElementById('overlay');
+  if (openDrop === id) { closeAll(); return; }
+  closeAll();
+  drop.classList.add('open');
+  overlay.classList.add('active');
+  openDrop = id;
+}
+function closeAll() {
+  document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('open'));
+  document.getElementById('overlay').classList.remove('active');
+  openDrop = null;
+}
+
+// ══════════════════════════════════════════════
+// SIMULATION PARAMS
+// ══════════════════════════════════════════════
+const params = {
+  numTickets: 11, reservePrice: 10, bidStepPct: 5,
+  participantMult: 2.0, specFrac: 0.25, exchangeComm: 10,
+  creatorRoyalty: 5, secRounds: 5
+};
+let simRuns = 300;
+
+function upd(key, raw) {
+  const v = parseFloat(raw);
+  const displays = {
+    tickets: v, reserve: v, step: v + '%',
+    mult: (v / 10).toFixed(1) + '×', spec: v + '%',
+    comm: v + '%', royalty: v + '%', sec: v, runs: v
+  };
+  document.getElementById('v-' + key).textContent = displays[key];
+  if (key === 'tickets') params.numTickets = v;
+  else if (key === 'reserve') params.reservePrice = v;
+  else if (key === 'step') params.bidStepPct = v;
+  else if (key === 'mult') params.participantMult = v / 10;
+  else if (key === 'spec') params.specFrac = v / 100;
+  else if (key === 'comm') params.exchangeComm = v;
+  else if (key === 'royalty') params.creatorRoyalty = v;
+  else if (key === 'sec') params.secRounds = v;
+  else if (key === 'runs') simRuns = v;
+}
+
+function toggleType(id, label) {
+  const cb = document.getElementById('t-' + id);
+  const checked = ['english','english_nr','flash','dutch'].filter(t2 => document.getElementById('t-' + t2).checked);
+  if (checked.length === 1 && checked[0] === id) return;
+  cb.checked = !cb.checked;
+  label.classList.toggle('active', cb.checked);
+}
+
+// ══════════════════════════════════════════════
+// SIMULATION ENGINE
+// ══════════════════════════════════════════════
+const randNorm = () => {
+  const u = Math.max(1e-10, Math.random()), v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+};
+const randLN = (mu, s) => Math.exp(mu + s * randNorm());
+const randBetween = (a, b) => a + Math.random() * (b - a);
+const shuffle = arr => {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+
+function makeAgents(count, specFrac, basePrice) {
+  return Array.from({ length: count }, (_, id) => {
+    const r = Math.random();
+    let kind, wtp;
+    if (r < 0.07) { kind = 'whale'; wtp = randLN(Math.log(basePrice * 6), 0.45); }
+    else if (r < 0.07 + specFrac) { kind = 'spec'; wtp = randLN(Math.log(basePrice * 2.4), 0.60); }
+    else { kind = 'fan'; wtp = randLN(Math.log(basePrice * 2.8), 0.90); }
+    return { id, kind, wtp: Math.max(wtp, 0.5), taken: false };
+  });
+}
+
+function englishOne(bidders, startPrice, stepPct) {
+  let price = Math.max(startPrice, 0.01);
+  let active = bidders.filter(b => b.wtp >= price);
+  if (!active.length) return null;
+  for (let i = 0; i < 2000 && active.length > 1; i++) {
+    const next = price * (1 + stepPct / 100);
+    const nxt = active.filter(b => b.wtp >= next);
+    if (!nxt.length) break;
+    price = next; active = nxt;
+  }
+  return { winner: active[0], price };
+}
+
+function primaryEnglish(agents, p, noReserve) {
+  const pool = shuffle(agents.map(a => ({ ...a })));
+  const sales = [];
+  for (let i = 0; i < p.numTickets; i++) {
+    const avail = pool.filter(a => !a.taken);
+    const res = englishOne(avail, noReserve ? 0.01 : p.reservePrice, p.bidStepPct);
+    if (!res) break;
+    pool.find(a => a.id === res.winner.id).taken = true;
+    sales.push({ idx: i, price: res.price, kind: res.winner.kind });
+  }
+  return sales;
+}
+
+function primaryFlash(agents, p) {
+  const bids = agents.map(a => ({ ...a, eb: a.wtp * (1 + randBetween(0, 0.18)) }))
+    .sort((a, b) => b.eb - a.eb);
+  const n = Math.min(p.numTickets, bids.length);
+  const cutoff = bids[n] ? bids[n].eb : 0;
+  return bids.slice(0, n).map((b, i) => ({
+    idx: i,
+    price: Math.max(b.eb * 0.88 + cutoff * 0.12, p.reservePrice),
+    kind: b.kind
+  }));
+}
+
+function primaryDutch(agents, p) {
+  const pool = shuffle(agents.map(a => ({ ...a })));
+  const ceiling = Math.max(p.reservePrice * 7, 1);
+  const sales = [];
+  for (let i = 0; i < p.numTickets; i++) {
+    let price = ceiling;
+    const avail = pool.filter(a => !a.taken);
+    let sold = false;
+    for (let j = 0; j < 2000; j++) {
+      const buyers = avail.filter(b => b.wtp >= price);
+      if (buyers.length) {
+        const w = buyers[Math.floor(Math.random() * buyers.length)];
+        pool.find(a => a.id === w.id).taken = true;
+        sales.push({ idx: i, price, kind: w.kind });
+        sold = true; break;
+      }
+      price *= (1 - p.bidStepPct / 100);
+      if (price < Math.max(p.reservePrice, 0.1)) break;
+    }
+    if (!sold) break;
+  }
+  return sales;
+}
+
+function secondaryMarket(primarySales, agents, p) {
+  let exchRev = 0, totalSales = 0;
+  const holdings = primarySales.map(s => ({ ...s }));
+  for (let rnd = 0; rnd < p.secRounds; rnd++) {
+    const decay = Math.pow(0.76, rnd);
+    const listings = holdings.filter(h => {
+      const prob = h.kind === 'spec' ? 0.65 : h.kind === 'whale' ? 0.38 : 0.13;
+      return Math.random() < prob * decay;
+    });
+    if (!listings.length) break;
+    for (const l of listings) {
+      const mMin = l.kind === 'spec' ? 1.12 : 1.05;
+      const mMax = l.kind === 'spec' ? 1.80 : 1.40;
+      const ask = l.price * randBetween(mMin, mMax);
+      const cool = Math.pow(0.84, rnd);
+      const capable = agents.filter(b => b.wtp * cool >= ask && Math.random() < 0.55);
+      if (capable.length) {
+        exchRev += ask * p.exchangeComm / 100;
+        totalSales++;
+        l.price = ask;
+        l.kind = Math.random() < 0.38 ? 'spec' : 'fan';
+      }
+    }
+  }
+  return { exchRev, totalSales };
+}
+
+function runOnce(p, auctionType) {
+  const numAgents = Math.round(p.numTickets * p.participantMult);
+  const basePrice = Math.max(p.reservePrice, 5);
+  const agents = makeAgents(numAgents, p.specFrac, basePrice);
+  let sales;
+  if (auctionType === 'english') sales = primaryEnglish(agents, p, false);
+  else if (auctionType === 'english_nr') sales = primaryEnglish(agents, p, true);
+  else if (auctionType === 'flash') sales = primaryFlash(agents, p);
+  else sales = primaryDutch(agents, p);
+  const primExchRev = sales.reduce((s, x) => s + x.price * p.exchangeComm / 100, 0);
+  const sec = secondaryMarket(sales, agents, p);
+  const total = primExchRev + sec.exchRev;
+  return {
+    total, primary: primExchRev, secondary: sec.exchRev,
+    ticketsSold: sales.length,
+    avgPrice: sales.length ? sales.reduce((s, x) => s + x.price, 0) / sales.length : 0,
+    secSales: sec.totalSales,
+    secRatio: total > 0 ? sec.exchRev / total : 0,
+    priceByIdx: sales.map(s => s.price)
+  };
+}
+
+function monteCarlo(p, auctionType, runs) {
+  const results = Array.from({ length: runs }, () => runOnce(p, auctionType));
+  const mean = f => results.reduce((s, r) => s + r[f], 0) / runs;
+  const std  = f => { const m = mean(f); return Math.sqrt(results.reduce((s, r) => s + (r[f] - m) ** 2, 0) / runs); };
+  const maxLen = Math.max(...results.map(r => r.priceByIdx.length));
+  const priceByIdx = Array.from({ length: maxLen }, (_, i) => {
+    const vals = results.map(r => r.priceByIdx[i]).filter(v => v !== undefined);
+    return vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+  });
+  return {
+    type: auctionType,
+    meanTotal: mean('total'), stdTotal: std('total'),
+    cv: std('total') / (mean('total') || 1),
+    meanPrimary: mean('primary'), meanSecondary: mean('secondary'),
+    meanTickets: mean('ticketsSold'), meanAvgPrice: mean('avgPrice'),
+    meanSecSales: mean('secSales'), meanSecRatio: mean('secRatio'),
+    priceByIdx, rawTotal: results.map(r => r.total)
+  };
+}
+
+// ══════════════════════════════════════════════
+// RUN
+// ══════════════════════════════════════════════
+let lastResults = [];
+const TYPE_COLORS = { english:'#b8f73a', english_nr:'#4af7c9', flash:'#f74a4a', dutch:'#9b7ef7' };
+
+async function runAll() {
+  const types = ['english','english_nr','flash','dutch'].filter(t2 => document.getElementById('t-'+t2).checked);
+  if (!types.length) return;
+  const btn = document.getElementById('run-btn');
+  const prog = document.getElementById('progress');
+  btn.disabled = true;
+  btn.textContent = t('btn_running');
+  const all = [];
+  for (let i = 0; i < types.length; i++) {
+    prog.style.width = (i / types.length * 100) + '%';
+    await new Promise(r => setTimeout(r, 0));
+    all.push(monteCarlo(params, types[i], simRuns));
+  }
+  prog.style.width = '100%';
+  lastResults = all;
+  renderResults(all);
+  btn.disabled = false;
+  btn.textContent = t('btn_run');
+  setTimeout(() => { prog.style.width = '0%'; }, 700);
+}
+
+// ══════════════════════════════════════════════
+// RENDER
+// ══════════════════════════════════════════════
+const charts = {};
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+const f2 = n => parseFloat(n).toFixed(2);
+const f1 = n => parseFloat(n).toFixed(1);
+const pct = n => (n * 100).toFixed(1) + '%';
+
+function isDarkMode() { return document.body.getAttribute('data-theme') === 'dark'; }
+
+function chartDefaults() {
+  const dark = isDarkMode();
+  return {
+    grid: dark ? 'rgba(42,42,38,0.7)' : 'rgba(200,198,190,0.5)',
+    tick: dark ? '#555550' : '#999990',
+  };
+}
+
+function typeLabel(type) {
+  const map = { english: t('type_english'), english_nr: t('type_english_nr'), flash: t('type_flash'), dutch: t('type_dutch') };
+  return map[type] || type;
+}
+
+function renderResults(results) {
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('results-section').classList.add('visible');
+  document.getElementById('runs-badge').textContent = t('runs_badge', simRuns, results.length);
+
+  const sorted = [...results].sort((a, b) => b.meanTotal - a.meanTotal);
+  const winner = sorted[0];
+
+  // Table
+  const tbody = document.getElementById('results-body');
+  tbody.innerHTML = '';
+  sorted.forEach(r => {
+    const isWin = r.type === winner.type;
+    const tr = document.createElement('tr');
+    if (isWin) tr.className = 'winner-row';
+    tr.innerHTML = `
+      <td class="type-cell">${typeLabel(r.type)}${isWin ? `<span class="best-badge">best</span>` : ''}</td>
+      <td class="mono">${f2(r.meanTotal)}</td>
+      <td class="mono" style="color:var(--text3)">±${f2(r.stdTotal)}</td>
+      <td class="mono">${f2(r.meanPrimary)}</td>
+      <td class="mono">${f2(r.meanSecondary)}</td>
+      <td class="mono">${pct(r.meanSecRatio)}</td>
+      <td class="mono">${f2(r.meanAvgPrice)}</td>
+      <td class="mono">${f1(r.meanSecSales)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Rec metrics
+  document.getElementById('rec-metrics').innerHTML = `
+    <div class="rec-metric">
+      <div class="rec-metric-label">${t('rec_best')}</div>
+      <div class="rec-metric-value" style="font-size:12px;color:var(--accent);margin-top:4px">${typeLabel(winner.type)}</div>
+    </div>
+    <div class="rec-metric">
+      <div class="rec-metric-label">${t('rec_rev')}</div>
+      <div class="rec-metric-value">${f2(winner.meanTotal)}<span class="rec-metric-unit">USDT</span></div>
+    </div>
+    <div class="rec-metric">
+      <div class="rec-metric-label">${t('rec_sec_ratio')}</div>
+      <div class="rec-metric-value">${pct(winner.meanSecRatio)}</div>
+    </div>
+    <div class="rec-metric">
+      <div class="rec-metric-label">${t('rec_avg_price')}</div>
+      <div class="rec-metric-value">${f2(winner.meanAvgPrice)}<span class="rec-metric-unit">USDT</span></div>
+    </div>
+    <div class="rec-metric">
+      <div class="rec-metric-label">${t('rec_resales')}</div>
+      <div class="rec-metric-value">${f1(winner.meanSecSales)}</div>
+    </div>
+    <div class="rec-metric">
+      <div class="rec-metric-label">${t('rec_tickets')}</div>
+      <div class="rec-metric-value">${f1(winner.meanTickets)}<span class="rec-metric-unit">/ ${params.numTickets}</span></div>
+    </div>
+  `;
+
+  const longTail = winner.meanSecRatio > 0.40;
+  const isStable = winner.cv < 0.3;
+  document.getElementById('rec-note').innerHTML = t('rec_note', winner, longTail,
+    longTail ? 'hyp-yes' : 'hyp-no', pct(winner.meanSecRatio), pct(winner.cv), isStable);
+
+  // Charts
+  const cd = chartDefaults();
+  const labels = sorted.map(r => typeLabel(r.type));
+  const colors = sorted.map(r => TYPE_COLORS[r.type]);
+
+  destroyChart('revenue');
+  charts['revenue'] = new Chart(document.getElementById('chart-revenue'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data: sorted.map(r => +f2(r.meanTotal)), backgroundColor: colors.map(c=>c+'66'), borderColor: colors, borderWidth: 1, borderRadius: 4 }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: { x: { grid: { color: cd.grid }, ticks: { color: cd.tick, maxRotation: 20, font: { size: 10 } } }, y: { grid: { color: cd.grid }, ticks: { color: cd.tick, font: { size: 10 } }, beginAtZero: true } } }
+  });
+
+  destroyChart('split');
+  charts['split'] = new Chart(document.getElementById('chart-split'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: t('label_primary'), data: sorted.map(r => +f2(r.meanPrimary)), backgroundColor: colors.map(c=>c+'99'), borderColor: colors, borderWidth: 1, stack: 'r' },
+        { label: t('label_secondary'), data: sorted.map(r => +f2(r.meanSecondary)), backgroundColor: colors.map(c=>c+'33'), borderColor: colors.map(c=>c+'88'), borderWidth: 1, stack: 'r' }
+      ]
+    },
+    options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 }, color: cd.tick } } }, scales: { x: { stacked: true, grid: { color: cd.grid }, ticks: { color: cd.tick, maxRotation: 20, font: { size: 10 } } }, y: { stacked: true, grid: { color: cd.grid }, ticks: { color: cd.tick, font: { size: 10 } }, beginAtZero: true } } }
+  });
+
+  const vals = winner.rawTotal.map(v => +f2(v)).sort((a, b) => a - b);
+  const mn = vals[0], mx = vals[vals.length - 1];
+  const bins = 14, bsz = (mx - mn) / bins || 1;
+  const hist = Array(bins).fill(0);
+  vals.forEach(v => { hist[Math.min(Math.floor((v - mn) / bsz), bins - 1)]++; });
+  destroyChart('dist');
+  charts['dist'] = new Chart(document.getElementById('chart-dist'), {
+    type: 'bar',
+    data: { labels: Array.from({length:bins},(_,i)=>(+(mn+(i+0.5)*bsz)).toFixed(1)), datasets: [{ data: hist, backgroundColor: TYPE_COLORS[winner.type]+'55', borderColor: TYPE_COLORS[winner.type], borderWidth: 0.5, borderRadius: 2 }] },
+    options: { plugins: { legend: { display: false } }, scales: { x: { grid: { color: cd.grid }, ticks: { color: cd.tick, maxTicksLimit: 6, font: { size: 10 } } }, y: { grid: { color: cd.grid }, ticks: { color: cd.tick, font: { size: 10 } } } } }
+  });
+
+  const seqTypes = sorted.filter(r => r.type !== 'flash');
+  destroyChart('price');
+  charts['price'] = new Chart(document.getElementById('chart-price'), {
+    type: 'line',
+    data: {
+      labels: Array.from({length:params.numTickets},(_,i)=>'#'+(i+1)),
+      datasets: seqTypes.map(r => ({
+        label: typeLabel(r.type),
+        data: r.priceByIdx.slice(0, params.numTickets).map(v => v !== null ? +f2(v) : null),
+        borderColor: TYPE_COLORS[r.type], backgroundColor: 'transparent',
+        borderWidth: 1.5, pointRadius: 3, pointBackgroundColor: TYPE_COLORS[r.type],
+        tension: 0.35, spanGaps: true
+      }))
+    },
+    options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 }, color: cd.tick } } }, scales: { x: { grid: { color: cd.grid }, ticks: { color: cd.tick, font: { size: 10 } } }, y: { grid: { color: cd.grid }, ticks: { color: cd.tick, font: { size: 10 } }, beginAtZero: false } } }
+  });
+}
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+Chart.defaults.font.family = "'DM Mono', monospace";
+Chart.defaults.font.size = 10;
+
+// Restore theme
+const saved = localStorage.getItem('ehipas-theme') || 'dark';
+currentTheme = saved;
+applyTheme(saved);
+
+// System theme listener
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if (currentTheme === 'system') applyTheme('system');
+});
+
+// Apply default lang
+applyLang();
+</script>
+</body>
+</html>
